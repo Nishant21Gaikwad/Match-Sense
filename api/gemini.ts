@@ -4,7 +4,6 @@ export const config = {
 };
 
 export default async function handler(req: any, res: any) {
-  // CORS configuration
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -37,7 +36,7 @@ export default async function handler(req: any, res: any) {
     const clientReferer = (req.headers['referer'] as string) || 'https://match-sense-vert.vercel.app/';
     const models = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.5-flash'];
 
-    let lastError: any = null;
+    const attemptLogs: any[] = [];
     for (const model of models) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -61,27 +60,25 @@ export default async function handler(req: any, res: any) {
 
         if (!response.ok) {
           const errText = await response.text();
-          console.error(`Gemini model ${model} returned ${response.status}:`, errText);
-          lastError = new Error(`Model ${model} returned ${response.status}: ${errText}`);
+          attemptLogs.push({ model, status: response.status, error: errText.substring(0, 200) });
           continue;
         }
 
         const data = await response.json();
         const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!textContent) {
-          lastError = new Error(`No content from model ${model}`);
+          attemptLogs.push({ model, status: 200, error: 'No textContent in candidates' });
           continue;
         }
 
         const parsed = JSON.parse(textContent);
         return res.status(200).json({ result: parsed });
       } catch (err: any) {
-        lastError = err;
-        console.error(`Error querying model ${model}:`, err.message);
+        attemptLogs.push({ model, error: err.message });
       }
     }
 
-    return res.status(502).json({ error: lastError?.message || 'All candidate Gemini models failed' });
+    return res.status(502).json({ error: 'All candidate Gemini models failed', attempts: attemptLogs });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Server error' });
   }
