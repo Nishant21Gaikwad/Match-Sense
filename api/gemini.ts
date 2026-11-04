@@ -45,11 +45,16 @@ export default async function handler(req: any, res: any) {
     const delays = [1000, 2000];
     let lastError = null;
 
+    const clientReferer = (req.headers['referer'] as string) || 'https://match-sense-vert.vercel.app/';
+
     for (let i = 0; i <= delays.length; i++) {
       try {
         const response = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Referer: clientReferer
+          },
           body: JSON.stringify(payload)
         });
 
@@ -79,3 +84,4 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: error.message || 'Server error' });
   }
 }
+

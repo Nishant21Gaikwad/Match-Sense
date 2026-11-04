@@ -36,9 +36,13 @@ export default defineConfig(({ mode }) => {
                 }
 
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+                const clientReferer = (req.headers['referer'] as string) || 'https://match-sense-vert.vercel.app/';
                 const geminiRes = await fetch(url, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Referer: clientReferer
+                  },
                   body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
                     generationConfig: {
