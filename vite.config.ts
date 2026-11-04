@@ -35,8 +35,12 @@ export default defineConfig(({ mode }) => {
                   return;
                 }
 
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+                const model = 'gemini-flash-lite-latest';
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
                 const clientReferer = (req.headers['referer'] as string) || 'https://match-sense-vert.vercel.app/';
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4200);
+
                 const geminiRes = await fetch(url, {
                   method: 'POST',
                   headers: {
@@ -47,10 +51,14 @@ export default defineConfig(({ mode }) => {
                     contents: [{ parts: [{ text: prompt }] }],
                     generationConfig: {
                       responseMimeType: 'application/json',
-                      responseSchema: schema
+                      responseSchema: schema,
+                      maxOutputTokens: 300,
+                      temperature: 0.2
                     }
-                  })
+                  }),
+                  signal: controller.signal
                 });
+                clearTimeout(timeoutId);
 
                 const data = await geminiRes.json();
                 if (!geminiRes.ok) {
