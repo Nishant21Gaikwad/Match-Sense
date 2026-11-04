@@ -1233,12 +1233,12 @@ export default function App() {
   };
 
   // ============================================================================
-  // SECURE SERVERLESS GEMINI API HELPER (STRICT 4.5S CAP • NO DELAYS)
+  // SECURE SERVERLESS GEMINI API HELPER (STRICT 3.8S CAP • ZERO CASCAFE DELAYS)
   // ============================================================================
   const callGemini = async (prompt, schema) => {
     const payload = { prompt, schema };
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500);
+    const timeoutId = setTimeout(() => controller.abort(), 3800);
 
     try {
       const res = await fetch('/api/gemini', {
