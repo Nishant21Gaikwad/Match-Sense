@@ -1,5 +1,6 @@
 export const config = {
-  runtime: 'nodejs'
+  runtime: 'nodejs',
+  maxDuration: 60
 };
 
 export default async function handler(req: any, res: any) {
@@ -34,55 +35,53 @@ export default async function handler(req: any, res: any) {
     }
 
     const clientReferer = (req.headers['referer'] as string) || 'https://match-sense-vert.vercel.app/';
-    const model = 'gemini-flash-lite-latest';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const models = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.5-flash'];
 
-    const payload = {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: schema,
-        maxOutputTokens: 300,
-        temperature: 0.2
+    let lastError: any = null;
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const payload = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: schema,
+            temperature: 0.2
+          }
+        };
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Referer: clientReferer
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error(`Gemini model ${model} returned ${response.status}:`, errText);
+          lastError = new Error(`Model ${model} returned ${response.status}: ${errText}`);
+          continue;
+        }
+
+        const data = await response.json();
+        const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!textContent) {
+          lastError = new Error(`No content from model ${model}`);
+          continue;
+        }
+
+        const parsed = JSON.parse(textContent);
+        return res.status(200).json({ result: parsed });
+      } catch (err: any) {
+        lastError = err;
+        console.error(`Error querying model ${model}:`, err.message);
       }
-    };
-
-    // Strict 4.2-second timeout to guarantee sub-5s response
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4200);
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Referer: clientReferer
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errText = await response.text();
-        return res.status(response.status).json({ error: `Gemini API returned ${response.status}: ${errText}` });
-      }
-
-      const data = await response.json();
-      const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!textContent) {
-        return res.status(500).json({ error: 'No content returned from Gemini' });
-      }
-
-      const parsed = JSON.parse(textContent);
-      return res.status(200).json({ result: parsed });
-    } catch (err: any) {
-      clearTimeout(timeoutId);
-      if (err.name === 'AbortError') {
-        return res.status(504).json({ error: 'Gemini request timed out after 4.2 seconds' });
-      }
-      return res.status(502).json({ error: err.message || 'Upstream fetch failed' });
     }
+
+    return res.status(502).json({ error: lastError?.message || 'All candidate Gemini models failed' });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Server error' });
   }

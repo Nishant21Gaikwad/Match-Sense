@@ -1233,35 +1233,34 @@ export default function App() {
   };
 
   // ============================================================================
-  // SECURE SERVERLESS GEMINI API HELPER (STRICT 3.8S CAP • ZERO CASCAFE DELAYS)
+  // SECURE SERVERLESS GEMINI API HELPER (NO CLIENT-SIDE API KEYS EXPOSED)
   // ============================================================================
   const callGemini = async (prompt, schema) => {
     const payload = { prompt, schema };
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3800);
 
-    try {
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+    const delays = [1000, 2000, 3000];
+    for (let i = 0; i <= delays.length; i++) {
+      try {
+        const res = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Serverless returned status ${res.status}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Serverless function returned status ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (!data.result) {
+          throw new Error('No result returned from serverless function');
+        }
+        return data.result;
+      } catch (err) {
+        if (i === delays.length) throw err;
+        await new Promise((r) => setTimeout(r, delays[i]));
       }
-
-      const data = await res.json();
-      if (!data.result) {
-        throw new Error('No result returned from serverless function');
-      }
-      return data.result;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      throw err;
     }
   };
 
