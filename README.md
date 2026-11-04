@@ -7,7 +7,6 @@
 
 ---
 
-## 📋 200-Word Submission Note
 
 ### 1. What Fan Problem Are We Solving?
 During live high-stakes sports matches, fans face two major pain points:
